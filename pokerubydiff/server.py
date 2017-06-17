@@ -144,7 +144,7 @@ class Watcher(FileSystemEventHandler):
             return
         address = symbol.value & 0xFFFFFFFE # Ignore THUMB bit
 
-        # 5. Disassemble
+        # 4. Disassemble
         with open(os.path.join(self._directory, 'pokeruby.elf'), 'rb') as f:
             modified_symbols = symbols.Symbols(f)
 
@@ -154,7 +154,5 @@ class Watcher(FileSystemEventHandler):
         original = disasm.Disassembler(self._original_binary).disassemble(address, self._symbolcache)
         modified = disasm.Disassembler(modified_binary).disassemble(address, modified_symbols)
 
-        print(original)
-
-        # 6. Diff
-        # 8. Emit change
+        # 5. Diff
+        # 6. Emit change

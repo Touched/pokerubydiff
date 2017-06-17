@@ -371,89 +371,6 @@ class CodePath:
         )
 
 
-class Formatter:
-    def __init__(self, items, labels):
-        self.items = list(items)
-        self.labels = labels
-
-    def format_asm(self):
-        raise NotImplementedError
-
-
-class IDAEsqueFormatter(Formatter):
-    def __init__(self, items, labels):
-        super().__init__(items, labels)
-        self._sep_printed = False
-
-    def _print(self, *args, **kwargs):
-        print(*args, **kwargs, file=self._stream)
-
-    def _print_address(self):
-        self._print('{:08X} '.format(self.address), end='')
-
-    def _print_blank(self):
-        self._print_address()
-        self._print()
-
-    def _print_label(self, label, *, blank=False, newline=True):
-        if blank:
-            self._print_blank()
-
-        self._print_address()
-        self._print('{}:'.format(label), end='\n' if newline else '\t')
-
-    def _print_sep(self, *, blank=False):
-        if not self._sep_printed:
-            self._sep_printed = True
-            if blank: self._print_blank()
-            self._print('@ ' + '-' * 80)
-
-    def format_asm(self):
-        prev_type = None
-        name = None
-        self._stream = io.StringIO()
-
-        for item in self.items:
-            self.address = item.address()
-            is_data = isinstance(item, Data)
-
-            if prev_type != None and prev_type != type(item) and prev_type != AlignItem:
-                self._print_sep()
-
-            prev_type = type(item)
-
-            if self.address in self.labels:
-                label = self.labels[self.address]
-
-                # The first label is the name of the subroutine
-                if name == None:
-                    name = label
-
-                if is_data:
-                    self._print_label(label, blank=False, newline=False)
-                else:
-                    self._print_label(label, blank=True)
-
-            self._sep_printed = False
-            if is_data:
-                self._print('{}'.format(str(item)))
-            elif isinstance(item, Insn):
-                self._print_address()
-                self._print('\t\t{}'.format(str(item)))
-
-                if item.is_unconditional_jump():
-                    self._print_sep()
-                elif item.is_return():
-                    self._print_address()
-                    self._print('@ End of function', name)
-                    self._print_blank()
-            else:
-                self._print_address()
-                self._print('\t\t{}'.format(str(item)))
-
-        return self._stream.getvalue()
-
-
 class Disassembler:
     def __init__(self, data):
         self.data = data
@@ -463,7 +380,7 @@ class Disassembler:
         )
         self.md.detail = True
 
-    def disassemble(self, address, symbols, *, formatter=IDAEsqueFormatter):
+    def disassemble(self, address, symbols):
         queue = [CodePath(self.md, self.data, address, Stack(), Registers(), symbols)]
         visited = set()
 
@@ -505,8 +422,7 @@ class Disassembler:
         # Sort by address
         items = map(operator.itemgetter(1), sorted(items.items(), key=operator.itemgetter(0)))
 
-        #Uncover holes in output
-        final_items = []
+        # Uncover holes in output and label the instructions
         predicted_next_address = None
         for item in items:
             if predicted_next_address != None and predicted_next_address != item.address():
@@ -514,9 +430,10 @@ class Disassembler:
                 # if not, the size of the item was incorrect
                 assert item.address() >= predicted_next_address
                 size = item.address() - predicted_next_address
-                final_items.append(AlignItem(predicted_next_address, size))
+                yield AlignItem(predicted_next_address, size)
+
+            # Label the items
+            item.label = labels.get(item.address())
 
             predicted_next_address = item.address() + item.size()
-            final_items.append(item)
-
-        return formatter(final_items, labels).format_asm()
+            yield item
