@@ -52,3 +52,21 @@ $red: #b36868;
         }
     }
 }
+
+.diff-change-enter {
+  opacity: 0.01;
+}
+
+.diff-change-enter.diff-change-enter-active {
+  opacity: 1;
+  transition: opacity 1000ms ease-in;
+}
+
+.diff-change-leave {
+  opacity: 1;
+}
+
+.diff-change-leave.diff-change-leave-active {
+  opacity: 0.01;
+  transition: opacity 1000ms ease-in;
+}

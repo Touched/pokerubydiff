@@ -1,6 +1,7 @@
 import React from 'react';
 import R from 'ramda';
 import classNames from 'classnames';
+import ReactCSSTransitionGroup from 'react-addons-css-transition-group';
 
 import './styles.scss';
 
@@ -104,9 +105,14 @@ function DiffLine(props) {
 
 function InlineDiff({ diff }) {
   return (
-    <div className="diff-inline">
-      {diff.map((line, index) => <DiffLine key={index} {...line} />, diff)}
-    </div>
+    <ReactCSSTransitionGroup
+      className="diff-inline"
+      transitionName="diff-change"
+      transitionEnterTimeout={1000}
+      transitionLeaveTimeout={1000}
+    >
+      {diff.map((line) => <DiffLine key={`${line.address}${line.text}`} {...line} />, diff)}
+    </ReactCSSTransitionGroup>
   );
 }
 
