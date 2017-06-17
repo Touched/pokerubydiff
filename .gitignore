@@ -1,0 +1,16 @@
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+node_modules
+.tern-port
+
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+build/
+dist/
+*.so
+
+pokerubydiff/public
