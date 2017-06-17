@@ -279,10 +279,13 @@ class Insn(Unit):
         elif id == capstone.arm.ARM_INS_LDR:
             if operands[1].mem.base == capstone.arm.ARM_REG_PC:
                 # TODO: Get symbol in the middle
-                symbol = self._symbols.get(self._datarefs[0].value)
+                lookup = self._symbols.lookup(self._datarefs[0].value)
 
-                if symbol:
-                    ops.append('={}'.format(symbol.name))
+                if lookup:
+                    if lookup.disp > 0:
+                        ops.append('={}+{}'.format(lookup.symbol.name, lookup.disp))
+                    else:
+                        ops.append('={}'.format(lookup.symbol.name))
                 else:
                     ops.append('=0x{:08x}'.format(self._datarefs[0].value))
 
@@ -306,10 +309,10 @@ class Insn(Unit):
                     ops.append(generate_label(op.imm, 'loc'))
                 elif id == capstone.arm.ARM_INS_BL:
                     # Lookup THUMB function
-                    symbol = self._symbols.get(op.imm | 1)
+                    lookup = self._symbols.lookup(op.imm)
 
-                    if symbol:
-                        ops.append(symbol.name)
+                    if lookup:
+                        ops.append(lookup.symbol.name)
                     else:
                         ops.append('0x{:08x}'.format(op.imm))
                 else:
@@ -452,38 +455,35 @@ class IDAEsqueFormatter(Formatter):
 
 
 class Disassembler:
-    def __init__(self, data, address, *, symbols={}, formatter=IDAEsqueFormatter):
+    def __init__(self, data):
         self.data = data
-        self.address = address
         self.md = capstone.Cs(
             capstone.CS_ARCH_ARM,
             capstone.CS_MODE_THUMB | capstone.CS_MODE_LITTLE_ENDIAN
         )
         self.md.detail = True
-        self._queue = [CodePath(self.md, self.data, self.address, Stack(), Registers(), symbols)]
-        self._visited = set()
 
-        self._formatter = formatter
-        self._symbols = symbols
+    def disassemble(self, address, symbols, *, formatter=IDAEsqueFormatter):
+        queue = [CodePath(self.md, self.data, address, Stack(), Registers(), symbols)]
+        visited = set()
 
-        # Output
-        self._items = {}
-        self._labels = {
+        items = {}
+        labels = {
+            # TODO: Use name
             address: generate_label(address, 'sub'),
         }
 
-    def disassemble(self):
         # Pass over data
-        while len(self._queue):
-            code_path = self._queue.pop()
-            self._visited.add(code_path.address)
+        while len(queue):
+            code_path = queue.pop()
+            visited.add(code_path.address)
 
             for insn in code_path:
-                self._items[insn.address()] = insn
+                items[insn.address()] = insn
 
                 for dataref in insn.data_references():
-                    self._labels[dataref.address()] = generate_label(dataref.address(), 'off')
-                    self._items[dataref.address()] = dataref
+                    labels[dataref.address()] = generate_label(dataref.address(), 'off')
+                    items[dataref.address()] = dataref
 
                 if not insn.is_return() and (insn.is_jump() and not insn.is_call()):
                     # Enqueue both branch paths
@@ -496,14 +496,14 @@ class Disassembler:
                         addresses = (insn.address() + insn.size(), jump_address)
 
                     for address in addresses:
-                        if address not in self._visited:
-                            self._queue.append(code_path.branch(address))
+                        if address not in visited:
+                            queue.append(code_path.branch(address))
 
                     # Only the jump target gets a label
-                    self._labels[jump_address] = generate_label(jump_address, 'loc')
+                    labels[jump_address] = generate_label(jump_address, 'loc')
 
         # Sort by address
-        items = map(operator.itemgetter(1), sorted(self._items.items(), key=operator.itemgetter(0)))
+        items = map(operator.itemgetter(1), sorted(items.items(), key=operator.itemgetter(0)))
 
         #Uncover holes in output
         final_items = []
@@ -519,4 +519,4 @@ class Disassembler:
             predicted_next_address = item.address() + item.size()
             final_items.append(item)
 
-        return self._formatter(final_items, self._labels).format_asm()
+        return formatter(final_items, labels).format_asm()

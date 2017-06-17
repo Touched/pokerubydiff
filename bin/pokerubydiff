@@ -1,30 +1,5 @@
 #!/usr/bin/env python
 
-# import pokerubydiff.elf
-# from pokerubydiff.disasm import Disassembler
-# from pokerubydiff.diff import diff
-
-# address = 0x080C7DC0 #0x080C7374
-
-# with open('/home/james/asm/pokeruby/basepokeruby.elf', 'rb') as elf, open('/home/james/asm/pokeruby/basepokeruby.gba', 'rb') as f:
-#     symbols = pokerubydiff.elf.symbols(elf)
-
-#     d = Disassembler(f.read(), address, symbols=symbols)
-#     original = d.disassemble()
-
-#     # for address in sorted(symbols.keys()):
-#     #     print(hex(address))
-
-# with open('/home/james/asm/pokeruby/pokeruby.elf', 'rb') as elf, open('/home/james/asm/pokeruby/pokeruby.gba', 'rb') as f:
-#     symbols = pokerubydiff.elf.symbols(elf)
-
-#     d = Disassembler(f.read(), address, symbols=symbols)
-#     modified = d.disassemble()
-
-
-# with open('output.html', 'w') as out:
-#     print(diff(original, modified), file=out)
-
 import os
 from pokerubydiff.server import Watcher
 

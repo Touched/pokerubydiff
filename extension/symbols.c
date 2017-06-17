@@ -9,7 +9,10 @@ struct Symbol
 {
     PyObject_HEAD
     PyObject *name;
-    PyObject *address;
+    PyObject *value;
+    PyObject *size;
+    int type;
+    int bind;
 };
 
 static void Symbol_dealloc(struct Symbol* self)
@@ -20,7 +23,10 @@ static void Symbol_dealloc(struct Symbol* self)
 
 static PyMemberDef Symbol_members[] = {
     {"name", T_OBJECT_EX, offsetof(struct Symbol, name), READONLY, "The name of the symbol"},
-    {"address", T_OBJECT_EX, offsetof(struct Symbol, address), READONLY, ""},
+    {"value", T_OBJECT_EX, offsetof(struct Symbol, value), READONLY, "The symbol value"},
+    {"size", T_OBJECT_EX, offsetof(struct Symbol, size), READONLY, "The symbol size if known"},
+    {"type", T_INT, offsetof(struct Symbol, type), READONLY, "The type of symbol"},
+    {"bind", T_INT, offsetof(struct Symbol, bind), READONLY, "The binding of symbol"},
     {NULL}  /* Sentinel */
 };
 
@@ -32,7 +38,6 @@ PyTypeObject elf_SymbolType = {
     .tp_dealloc = (destructor) Symbol_dealloc,
     .tp_flags = Py_TPFLAGS_DEFAULT,
     .tp_members = Symbol_members,
-    /* Symbol_new,                  /\* tp_new *\/ */
 };
 
 FILE *load_elf(PyObject *file, Elf32_Ehdr *ehdr)
@@ -131,7 +136,7 @@ PyObject *elf_symbols(PyObject *self, PyObject *args)
     Elf32_Ehdr ehdr;
 
     struct Symbol *symbol = NULL;
-    PyObject* symbols = PyDict_New();
+    PyObject* symbols = PyList_New(0);
 
     if (!symbols)
         goto error;
@@ -191,22 +196,26 @@ PyObject *elf_symbols(PyObject *self, PyObject *args)
                 Elf32_Sym *sym = (Elf32_Sym *) syms + j;
                 struct Symbol *symbol;
 
-                if (ELF32_ST_TYPE(sym->st_info) == STT_NOTYPE)
-                    continue;
-
                 symbol = PyObject_New(struct Symbol, &elf_SymbolType);
 
                 if (!symbol)
                     goto error;
 
                 symbol->name = PyUnicode_FromString(&strtab[sym->st_name]);
-                symbol->address = PyLong_FromLong(sym->st_value);
+                symbol->value = PyLong_FromLong(sym->st_value);
+                symbol->size = PyLong_FromLong(sym->st_size);
+                symbol->type = ELF32_ST_TYPE(sym->st_info);
+                symbol->bind = ELF32_ST_BIND(sym->st_info);
 
-                if (!symbol->name || !symbol->address)
+                if (!symbol->name || !symbol->value || !symbol->size)
+                {
+                    Py_XDECREF(symbol->name);
+                    Py_XDECREF(symbol->value);
+                    Py_XDECREF(symbol->size);
                     goto error;
+                }
 
-                Py_INCREF(symbol->address);
-                PyDict_SetItem(symbols, symbol->address, (PyObject*) symbol);
+                PyList_Append(symbols, (PyObject*) symbol);
             }
         }
     }

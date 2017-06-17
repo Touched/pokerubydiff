@@ -2,13 +2,15 @@ import fnmatch
 import subprocess
 import logging
 import threading
-from os import environ, path
+import os.path
 from flask import Flask, render_template, send_from_directory
 from flask_socketio import SocketIO
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+
 from . import parser
 from . import symbols
+from . import disasm
 
 class BuildError(Exception):
     def __init__(self, message):
@@ -34,9 +36,9 @@ class Watcher(FileSystemEventHandler):
         self._update_symbol_cache()
 
         paths = [
-            path.join(directory, 'src'),
-            path.join(directory, 'asm'),
-            path.join(directory, 'include'),
+            os.path.join(directory, 'src'),
+            os.path.join(directory, 'asm'),
+            os.path.join(directory, 'include'),
         ]
 
         self._observer = Observer(timeout=0.1)
@@ -44,7 +46,7 @@ class Watcher(FileSystemEventHandler):
         for p in paths:
             self._observer.schedule(self, p, recursive=True)
 
-        here = path.abspath(path.dirname(__file__))
+        here = os.path.abspath(os.path.dirname(__file__))
         self._app = app = Flask(__name__, template_folder='public')
         self._socketio = SocketIO(app)
 
@@ -54,7 +56,7 @@ class Watcher(FileSystemEventHandler):
 
         @app.route("/assets/<path:filename>")
         def send_asset(filename):
-            return send_from_directory(path.join(here, "public"), filename)
+            return send_from_directory(os.path.join(here, "public"), filename)
 
     def on_created(self, event):
         if self._observer.__class__.__name__ == 'InotifyObserver':
@@ -89,8 +91,11 @@ class Watcher(FileSystemEventHandler):
         """
         Update the cached symbols for the original pokeruby binary file
         """
-        with open(path.join(self._directory, 'basepokeruby.elf'), 'rb') as f:
-            self._symbol_cache = symbols.Symbols(f)
+        with open(os.path.join(self._directory, 'basepokeruby.elf'), 'rb') as f:
+            self._symbolcache = symbols.Symbols(f)
+
+        with open(os.path.join(self._directory, 'basepokeruby.gba'), 'rb') as f:
+            self._original_binary = f.read()
 
     def _make(self):
         self._logger.info('Starting a new build')
@@ -103,7 +108,6 @@ class Watcher(FileSystemEventHandler):
             raise BuildError(error)
         else:
             self._logger.info('Build success')
-
 
     def _on_change(self, path):
         if not self._matches(path, ('*.c', '*.s', '*.asm', '*.inc', '*.h')):
@@ -134,10 +138,23 @@ class Watcher(FileSystemEventHandler):
         self._update_file_cache()
 
         # 3. Get symbol address
-        print(changed_function)
-
+        symbol = self._symbolcache.lookup_name(changed_function)
+        if symbol == None:
+            self._logger.info('Could not find address for function {}'.format(changed_function))
+            return
+        address = symbol.value & 0xFFFFFFFE # Ignore THUMB bit
 
         # 5. Disassemble
+        with open(os.path.join(self._directory, 'pokeruby.elf'), 'rb') as f:
+            modified_symbols = symbols.Symbols(f)
+
+        with open(os.path.join(self._directory, 'pokeruby.gba'), 'rb') as f:
+            modified_binary = f.read()
+
+        original = disasm.Disassembler(self._original_binary).disassemble(address, self._symbolcache)
+        modified = disasm.Disassembler(modified_binary).disassemble(address, modified_symbols)
+
+        print(original)
+
         # 6. Diff
-        # 7. Debugging information (line numbers, struct offsets, etc.)
         # 8. Emit change
