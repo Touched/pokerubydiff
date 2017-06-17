@@ -7,10 +7,10 @@ from flask import Flask, render_template, send_from_directory
 from flask_socketio import SocketIO
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
-
 from . import parser
 from . import symbols
 from . import disasm
+from . import diff
 
 class BuildError(Exception):
     def __init__(self, message):
@@ -155,4 +155,7 @@ class Watcher(FileSystemEventHandler):
         modified = disasm.Disassembler(modified_binary).disassemble(address, modified_symbols)
 
         # 5. Diff
+        disasm_diff = diff.diff_disassemblies(original, modified)
+
         # 6. Emit change
+        self._socketio.emit('diff', list(disasm_diff))

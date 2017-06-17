@@ -119,51 +119,47 @@ class Registers:
         self._registers[key] = value
 
 
-# needs a better name
-class Unit:
-    def size(self):
-        raise NotImplementedError
-
-    def address(self):
-        raise NotImplementedError
-
-
-class AlignItem:
-    def __init__(self, address, size):
+class Item:
+    def __init__(self, type, address, size):
+        self._type = type
         self._address = address
         self._size = size
+        self.label = None
+
+    def type(self):
+        return self._type
 
     def size(self):
         return self._size
 
     def address(self):
         return self._address
+
+
+class AlignItem(Item):
+    def __init__(self, address, size):
+        super().__init__('padding', address, size)
 
     def __str__(self):
         return '.align {}'.format(self.size())
 
 
-class Data(Unit):
+class Data(Item):
     def __init__(self, data, address, size, symbols):
+        super().__init__('data', address, size)
         offset = address_to_offset(address)
         self._data = data
-        self._address = address
-        self._size = size
         self.value = int.from_bytes(self._data[offset:offset+size], 'little')
 
-    def size(self):
-        return self._size
-
-    def address(self):
-        return self._address
 
     def __str__(self):
         # TODO: Lookup symbol
         return '.word 0x{:08X}'.format(self.value)
 
 
-class Insn(Unit):
+class Insn(Item):
     def __init__(self, data, cs_insn, stack, registers, symbols):
+        super().__init__('code', cs_insn.address, cs_insn.size)
         self._insn = cs_insn
         self._data = data
         self._symbols = symbols
@@ -197,12 +193,6 @@ class Insn(Unit):
                 address = self._insn.address + disp + (4 if self._insn.address % 4 == 0 else 2)
                 size = 4
                 self._datarefs.append(Data(self._data, address, size, self._symbols))
-
-    def size(self):
-        return self._insn.size
-
-    def address(self):
-        return self._insn.address
 
     def data_references(self):
         return self._datarefs
@@ -279,7 +269,7 @@ class Insn(Unit):
         elif id == capstone.arm.ARM_INS_LDR:
             if operands[1].mem.base == capstone.arm.ARM_REG_PC:
                 # TODO: Get symbol in the middle
-                lookup = self._symbols.lookup(self._datarefs[0].value)
+                lookup = self._symbols and self._symbols.lookup(self._datarefs[0].value)
 
                 if lookup:
                     if lookup.disp > 0:
@@ -309,7 +299,7 @@ class Insn(Unit):
                     ops.append(generate_label(op.imm, 'loc'))
                 elif id == capstone.arm.ARM_INS_BL:
                     # Lookup THUMB function
-                    lookup = self._symbols.lookup(op.imm)
+                    lookup = self._symbols and self._symbols.lookup(op.imm)
 
                     if lookup:
                         ops.append(lookup.symbol.name)
@@ -380,7 +370,7 @@ class Disassembler:
         )
         self.md.detail = True
 
-    def disassemble(self, address, symbols):
+    def disassemble(self, address, symbols=None):
         queue = [CodePath(self.md, self.data, address, Stack(), Registers(), symbols)]
         visited = set()
 
