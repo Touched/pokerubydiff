@@ -1,0 +1,54 @@
+$green: #7ab97a;
+$red: #b36868;
+
+.diff-side-by-side {
+    display: flex;
+    width: 100%;
+
+    .diff-side-by-side-pane {
+        width: 100%;
+    }
+}
+
+.diff {
+    background: #f8f5ec;
+}
+
+.diff-inline {
+    font-family: monospace;
+    border-collapse: collapse;
+
+    .row {
+        display: flex;
+
+        .cell {
+            padding: 0.25em 0.5em;
+            width: 100%;
+
+            pre {
+                margin: 0;
+            }
+        }
+
+        .gutter {
+            width: auto;
+            background: #f1ede4;
+        }
+
+        &.insert {
+            background: $green;
+
+            .gutter {
+                background: darken($green, 10%);
+            }
+        }
+
+        &.delete {
+            background: $red;
+
+            .gutter {
+                background: darken($red, 10%);
+            }
+        }
+    }
+}

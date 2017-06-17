@@ -1,19 +1,46 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
+import { Provider } from 'react-redux';
+import thunk from 'redux-thunk';
+import { createStore, combineReducers, applyMiddleware, compose } from 'redux';
 
+import App from './containers/App';
+import { receiveMessage } from './actions';
+import * as reducers from './reducers';
 import './styles/main.scss';
 
-const socket = new WebSocket(`ws://${document.domain}:${location.port}/socket`);
+const PORT = process.env.NODE_ENV === 'production' ? location.port : '8080';
 
-socket.addEventListener('open', function (event) {
-  console.log('Connected')
-});
+const reducer = combineReducers(reducers);
 
-socket.addEventListener('message', function (event) {
-  console.log('Message from server', event.data);
-});
+function configureStore() {
+  const finalCreateStore = compose(
+    applyMiddleware(thunk),
+  )(createStore);
+  const store = finalCreateStore(reducer);
+
+  if (module.hot) {
+    module.hot.accept('./reducers/', () => {
+      const nextRootReducer = require('./reducers/index.js');
+      store.replaceReducer(nextRootReducer);
+    });
+  }
+
+  return store;
+}
+
+const store = configureStore();
 
 ReactDOM.render(
-  <h1>Hello, World from WebPack!</h1>,
-  document.getElementById('app')
-)
+  <Provider store={store}>
+    <App />
+  </Provider>,
+  document.getElementById('app'),
+);
+
+const socket = new WebSocket(`ws://${document.domain}:${PORT}/socket`);
+
+socket.addEventListener('message', function (message) {
+  const { type, data } = JSON.parse(message.data);
+  store.dispatch(receiveMessage(type, data));
+});

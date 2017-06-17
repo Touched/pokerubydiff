@@ -3,7 +3,16 @@ const webpack = require('webpack');
 const ExtractTextPlugin = require('extract-text-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 
-const root = './assets'
+const root = './assets';
+
+const plugins = process.env.NODE_ENV === 'production' ? [
+  new webpack.optimize.UglifyJsPlugin(),
+  new webpack.DefinePlugin({
+    'process.env': {
+      NODE_ENV: '"production"'
+    }
+  }),
+] : [];
 
 module.exports = {
   entry: {
@@ -13,7 +22,7 @@ module.exports = {
   },
   output: {
     path: path.join(__dirname, 'pokerubydiff/public'),
-    publicPath: '/assets/',
+    publicPath: process.env.NODE_ENV === 'production' ? '/assets/' : '/',
     filename: '[name].[chunkhash].js',
     chunkFilename: '[id].[chunkhash].chunk',
   },
@@ -35,16 +44,11 @@ module.exports = {
   },
   plugins: [
     new ExtractTextPlugin('[name].[chunkhash].css'),
-    new webpack.optimize.UglifyJsPlugin(),
-    new webpack.DefinePlugin({
-      'process.env': {
-        NODE_ENV: '"production"'
-      }
-    }),
     new webpack.NoEmitOnErrorsPlugin(),
     new HtmlWebpackPlugin({
       title: 'pokerubydiff',
       template: path.join(__dirname, 'pokerubydiff/assets/index.ejs'),
     }),
+    ...plugins,
   ],
 }
