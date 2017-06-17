@@ -3,8 +3,8 @@ import subprocess
 import logging
 import threading
 import os.path
-from flask import Flask, render_template, send_from_directory
-from flask_socketio import SocketIO
+import asyncio
+from aiohttp import web
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from . import parser
@@ -17,7 +17,7 @@ class BuildError(Exception):
         self.message = message
 
 
-class Watcher(FileSystemEventHandler):
+class Server(FileSystemEventHandler):
     def __init__(self, directory, host='localhost', port=5000):
         # TODO: Check if directory is a pokeruby install
         # TODO: Check that the directory contains the necessary files
@@ -30,10 +30,12 @@ class Watcher(FileSystemEventHandler):
 
         self._host = host
         self._port = port
+        self._diff = None
         self._directory = directory
         self._changed_function = None
         self._update_file_cache()
         self._update_symbol_cache()
+        self._message_queue = asyncio.Queue()
 
         paths = [
             os.path.join(directory, 'src'),
@@ -46,17 +48,61 @@ class Watcher(FileSystemEventHandler):
         for p in paths:
             self._observer.schedule(self, p, recursive=True)
 
-        here = os.path.abspath(os.path.dirname(__file__))
-        self._app = app = Flask(__name__, template_folder='public')
-        self._socketio = SocketIO(app)
+        public_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'public')
 
-        @app.route('/')
-        def hello():
-            return render_template('index.html')
+        async def index(request):
+            with open(os.path.join(public_dir, 'index.html')) as f:
+                return web.Response(text=f.read(), content_type='text/html')
 
-        @app.route("/assets/<path:filename>")
-        def send_asset(filename):
-            return send_from_directory(os.path.join(here, "public"), filename)
+        async def socket(request):
+            ws = web.WebSocketResponse()
+            await ws.prepare(request)
+
+            request.app['websockets'].append(ws)
+
+            # New connections should receive the 'diff' event
+            if self._diff != None:
+                await ws.send_json({
+                    'type': 'diff',
+                    'data': self._diff,
+                })
+
+            try:
+                async for msg in ws:
+                    if msg.type == aiohttp.WSMsgType.TEXT:
+                        # TODO: Handle client response
+                        print(msg)
+            finally:
+                request.app['websockets'].remove(ws)
+
+            return ws
+
+        async def broadcast_messages(app):
+            while True:
+                type, data = await self._message_queue.get()
+                for ws in app['websockets']:
+                    ws.send_json({
+                        'type': type,
+                        'data': data,
+                    })
+
+
+        async def start_background_tasks(app):
+            app['message_broadcaster'] = app.loop.create_task(broadcast_messages(app))
+
+
+        async def cleanup_background_tasks(app):
+            app['message_broadcaster'].cancel()
+            await app['message_broadcaster']
+
+
+        self._app = web.Application()
+        self._app['websockets'] = []
+        self._app.on_startup.append(start_background_tasks)
+        self._app.on_cleanup.append(cleanup_background_tasks)
+        self._app.router.add_get('/', index)
+        self._app.router.add_get('/socket', socket)
+        self._app.router.add_static('/assets', public_dir)
 
     def on_created(self, event):
         if self._observer.__class__.__name__ == 'InotifyObserver':
@@ -77,9 +123,12 @@ class Watcher(FileSystemEventHandler):
     def run(self):
         self._logger.info('Starting server at http://{}:{}'.format(self._host, self._port))
         self._observer.start()
-        self._socketio.run(self._app, host=self._host, port=self._port)
+        web.run_app(self._app)
         self._observer.stop()
         self._observer.join()
+
+    def _broadcast(self, event, message=None):
+        self._message_queue.put_nowait((event, message))
 
     def _matches(self, filename, patterns):
         return any(fnmatch.fnmatch(filename, pattern) for pattern in patterns)
@@ -114,11 +163,11 @@ class Watcher(FileSystemEventHandler):
             return False
 
         # 1. Trigger a rebuild
-        self._socketio.emit('building')
+        self._broadcast('building')
         try:
             self._make()
         except BuildError as e:
-            self._socketio.emit('build_error', e.message)
+            self._broadcast('build_error', e.message)
             return
 
         # 2. Find change location or load it from the cached location
@@ -155,7 +204,7 @@ class Watcher(FileSystemEventHandler):
         modified = disasm.Disassembler(modified_binary).disassemble(address, modified_symbols)
 
         # 5. Diff
-        disasm_diff = diff.diff_disassemblies(original, modified)
+        self._diff = list(diff.diff_disassemblies(original, modified))
 
         # 6. Emit change
-        self._socketio.emit('diff', list(disasm_diff))
+        self._broadcast('diff', self._diff)

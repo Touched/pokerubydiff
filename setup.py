@@ -9,6 +9,6 @@ setup(
     packages=find_packages(),
     scripts=['bin/pokerubydiff'],
     ext_modules=[elf],
-    install_requires=['libclang-py3', 'watchdog', 'flask', 'flask-socketio'],
+    install_requires=['libclang-py3', 'watchdog', 'aiohttp'],
     include_package_data=True,
 )

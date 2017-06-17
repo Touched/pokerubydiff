@@ -1,12 +1,17 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
-import io from 'socket.io-client';
 
 import './styles/main.scss';
 
-var socket = io.connect('http://' + document.domain + ':' + location.port);
-socket.on('connect', console.log);
-socket.on('event', console.log);
+const socket = new WebSocket(`ws://${document.domain}:${location.port}/socket`);
+
+socket.addEventListener('open', function (event) {
+  console.log('Connected')
+});
+
+socket.addEventListener('message', function (event) {
+  console.log('Message from server', event.data);
+});
 
 ReactDOM.render(
   <h1>Hello, World from WebPack!</h1>,
