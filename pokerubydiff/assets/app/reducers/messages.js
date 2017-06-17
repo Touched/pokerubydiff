@@ -3,14 +3,16 @@ import { RECEIVE_MESSAGE } from '../constants';
 const initialState = {
   diff: [],
   building: false,
+  error: null,
 };
 
 function handleMessage(state, event, data) {
   switch (event) {
-    case 'buildling':
+    case 'building':
       return {
         ...state,
         building: true,
+        error: null,
       };
     case 'diff':
       return {
@@ -18,7 +20,14 @@ function handleMessage(state, event, data) {
         diff: data,
         building: false,
       };
+    case 'build_error':
+      return {
+        ...state,
+        error: data,
+        building: false,
+      };
     default:
+      console.log(event);
       return state;
   }
 }
