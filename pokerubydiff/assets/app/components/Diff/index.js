@@ -10,6 +10,36 @@ function formatAddress(address) {
   return address.toString(16).padStart(8, '0');
 }
 
+function formatTextChanges(changes, text) {
+  let last = 0;
+  const tags = [];
+  const classes = {
+    ' ': '',
+    '^': 'change',
+    '+': 'insert',
+    '-': 'delete',
+  };
+
+  function pushTag(tag, pos, text) {
+    if (text.length) {
+      tags.push(<span key={pos} className={classes[tag]}>{text}</span>);
+    }
+  }
+
+  changes.forEach(([opcode, start, end]) => {
+    if (start !== last) {
+      pushTag(' ', last, text.substring(last, start));
+    }
+
+    pushTag(opcode, start, text.substring(start, end));
+    last = end;
+  });
+
+  pushTag(' ', last, text.substring(last));
+
+  return <span className="text">{tags}</span>;
+}
+
 function Pre({ children }) {
   return <pre>{children}</pre>;
 }
@@ -40,7 +70,8 @@ function Row({ changes, className, address, blank, children }) {
 }
 
 function CodeDiffLine({ changes, className, blank, label, address, diff, text }) {
-  const indentedText = `\t\t${text}`;
+  const indent = '\t';
+  const textChanges = changes && changes.text || [];
 
   return (
     <div>
@@ -53,7 +84,7 @@ function CodeDiffLine({ changes, className, blank, label, address, diff, text })
       )}
       <Row changes={changes} className={className} address={address} blank={blank}>
         <Cell className="code">
-          <Pre>{indentedText}</Pre>
+          <Pre>{indent}{formatTextChanges(textChanges, text)}</Pre>
         </Cell>
       </Row>
     </div>
@@ -61,19 +92,23 @@ function CodeDiffLine({ changes, className, blank, label, address, diff, text })
 }
 
 function DataDiffLine({ changes, className, label, blank, address, diff, text }) {
+  const textChanges = changes && changes.text || [];
+
   return (
     <Row changes={changes} className={className} address={address} blank={blank}>
       <Cell className="data">
-        <Pre>{label && `${label}:\t`}{text}</Pre>
+        <Pre>{label && `${label}:\t`}{formatTextChanges(textChanges, text)}</Pre>
       </Cell>
     </Row>
   );
 }
 
 function PaddingDiffLine({ changes, className, blank, address, diff, text }) {
+  const textChanges = changes && changes.text || [];
+
   return (
     <Row changes={changes} className={className} address={address} blank={blank}>
-      <Cell className="padding"><Pre>{text}</Pre></Cell>
+      <Cell className="padding"><Pre>{formatTextChanges(textChanges, text)}</Pre></Cell>
     </Row>
   );
 }

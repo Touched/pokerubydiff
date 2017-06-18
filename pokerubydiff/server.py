@@ -210,7 +210,8 @@ class Server(FileSystemEventHandler):
         modified = disasm.Disassembler(modified_binary).disassemble(address, modified_symbols)
 
         # 5. Diff
-        self._diff = list(diff.diff_disassemblies(original, modified))
+        differ = diff.DisasmDiff()
+        self._diff = list(differ.diff(original, modified))
 
         # 6. Emit change
         self._broadcast('diff', self._diff)

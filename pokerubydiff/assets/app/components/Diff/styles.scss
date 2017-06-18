@@ -33,6 +33,20 @@ $yellow: #f1e36a;
             }
         }
 
+        .text {
+            .change {
+                background: $yellow;
+            }
+
+            .insert {
+                background: $green;
+            }
+
+            .delete {
+                background: $red;
+            }
+        }
+
         .gutter {
             width: auto;
             background: #f1ede4;
