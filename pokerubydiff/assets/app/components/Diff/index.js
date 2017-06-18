@@ -40,10 +40,10 @@ function CodeDiffLine({ className, blank, label, address, diff, text }) {
 
   return (
     <div>
-      {label && (
+      {label !== null && (
          <Row className={className} address={address} blank={blank}>
            <Cell className="code-label">
-             <Pre>{label}:</Pre>
+             {label !== '' && <Pre>{label}:</Pre>}
            </Cell>
          </Row>
       )}
@@ -119,14 +119,18 @@ function InlineDiff({ diff }) {
 
 function SideBySideDiff({ diff }) {
   const prepareLines = R.curry((prefix, item) => {
+    // Blank out lines that match the prefix
     return item.opcode === prefix ? {
       ...item,
       opcode: 'x',
     } : item;
   });
 
-  const left = R.map(prepareLines('+'), diff);
-  const right = R.map(prepareLines('-'), diff);
+  // Ensure the respective sides have blank spaces for insertions/deletions, and remove
+  // any replacement changes (i.e. diffs that are not a whole line but inside the line)
+  // that do not belong on that side.
+  const left = R.reject(R.propEq('opcode', '>'), R.map(prepareLines('+'), diff));
+  const right = R.reject(R.propEq('opcode', '<'), R.map(prepareLines('-'), diff));
 
   return (
     <div className="diff-side-by-side">

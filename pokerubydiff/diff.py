@@ -58,16 +58,47 @@ def diff_disassemblies(original, modified):
         elif tag == 'insert':
             yield from tag_range('+', b[blo:bhi])
         elif tag == 'equal':
-            # FIXME: The opcodes are equal, but this is reporting the address as equal too.
-            # Proper inline replacement must be done and reported to the diff client.
-            # Inline diff mode should be disabled too since that makes no sense
-            yield from tag_range(' ', a[alo:ahi])
+            # The opcodes are equal, but they might have been
+            # displaced by earlier sections of code. This means the
+            # addresses are not necessarily equal (as addresses are
+            # not factored into the diff), and this should be reported
+            # as a replacement.
+            for left, right in zip(tag_range(' ', a[alo:ahi]),
+                                   tag_range(' ', b[blo:bhi])):
+                if left['address'] == right['address']:
+                    yield left
+                else:
+                    changes = {
+                        'address': True,
+                    }
+
+                    # Labels will sometimes skew the output when they
+                    # are displayed on their own lines, so ensure that
+                    # both sets of changes report a label.
+                    has_label = bool(left['label'] or right['label'])
+                    fake_label = ('' if has_label else None)
+
+                    yield {
+                        **left,
+                        'opcode': '<',
+                        'changes': changes,
+                        'label': left['label'] or fake_label
+                    }
+
+                    yield {
+                        **right,
+                        'opcode': '>',
+                        'changes': changes,
+                        'label': right['label'] or fake_label
+                    }
         else:
             raise ValueError('Unkown tag %r' % (tag,))
 
     with open('diff.html', 'w') as html:
-        alc = ['{:50}# {:08x}\n'.format(tabs2spaces(str(item)), item.address()) for item in a]
-        blc = ['{:50}# {:08x}\n'.format(tabs2spaces(str(item)), item.address()) for item in b]
+        alc = ['{:50}# {:08x}\n'.format(tabs2spaces(str(item)),
+                                        item.address()) for item in a]
+        blc = ['{:50}# {:08x}\n'.format(tabs2spaces(str(item)),
+                                        item.address()) for item in b]
 
         htmldiff = difflib.HtmlDiff()
         html.write(htmldiff.make_file(alc, blc))
