@@ -1,30 +1,13 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 import R from 'ramda';
 import classNames from 'classnames';
 import ReactCSSTransitionGroup from 'react-addons-css-transition-group';
 
 import './styles.scss';
 
-const prefixes = {
-  ' ': 'equal',
-  '+': 'insert',
-  '-': 'delete',
-};
-
 function formatAddress(address) {
   return address.toString(16).padStart(8, '0');
-}
-
-function makeLine([prefix, type, address, size, text, label]) {
-  return {
-    diff: prefixes[prefix],
-    address,
-    type,
-    size,
-    text,
-    label,
-    blank: false,
-  };
 }
 
 function Pre({ children }) {
@@ -93,8 +76,8 @@ function PaddingDiffLine({ className, blank, address, diff, text }) {
 
 function DiffLine(props) {
   const className = classNames({
-    insert: !props.blank && props.diff === 'insert',
-    delete: !props.blank && props.diff === 'delete',
+    insert: !props.blank && props.opcode === '+',
+    delete: !props.blank && props.opcode === '-',
   });
 
   switch (props.type) {
@@ -108,6 +91,20 @@ function DiffLine(props) {
 }
 
 function InlineDiff({ diff }) {
+  const lines = diff.map((item) => {
+    if (item.opcode === 'x') {
+      return {
+        ...item,
+        blank: true,
+      };
+    }
+
+    return {
+      ...item,
+      blank: false,
+    };
+  });
+
   return (
     <ReactCSSTransitionGroup
       className="diff-inline"
@@ -115,21 +112,17 @@ function InlineDiff({ diff }) {
       transitionEnterTimeout={1000}
       transitionLeaveTimeout={1000}
     >
-      {diff.map((line) => <DiffLine key={`${line.address}${line.text}`} {...line} />, diff)}
+      {lines.map((line) => <DiffLine key={`${line.address}${line.text}`} {...line} />, diff)}
     </ReactCSSTransitionGroup>
   );
 }
 
 function SideBySideDiff({ diff }) {
-  const prepareLines = R.curry((prefix, line) => {
-    if (R.head(line) === prefix) {
-      return {
-        ...makeLine(line),
-        blank: true,
-      };
-    }
-
-    return makeLine(line);
+  const prepareLines = R.curry((prefix, item) => {
+    return item.opcode === prefix ? {
+      ...item,
+      opcode: 'x',
+    } : item;
   });
 
   const left = R.map(prepareLines('+'), diff);
@@ -147,7 +140,7 @@ function SideBySideDiff({ diff }) {
   );
 }
 
-export default function Diff({ diff }) {
+export default function Diff({ diff, diffMode, setDiffMode }) {
   return (
     <div className="diff">
       <SideBySideDiff diff={diff} />

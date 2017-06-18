@@ -13,10 +13,12 @@ function App({ diff, error, loading }) {
   );
 }
 
-const mapStateToProps = (state) => ({
-  diff: state.messages.diff,
-  loading: state.messages.building,
-  error: state.messages.error,
-});
+function mapStateToProps(state) {
+  return {
+    diff: state.messages.diff,
+    loading: state.messages.building,
+    error: state.messages.error,
+  };
+}
 
 export default connect(mapStateToProps, null)(App);
