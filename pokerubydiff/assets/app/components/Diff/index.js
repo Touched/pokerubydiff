@@ -18,36 +18,40 @@ function Cell(props) {
   return <div {...props} className={classNames('cell', props.className)} />
 }
 
-function Gutter({ address, blank }) {
-  return <Cell className="gutter">{blank ? <span>&nbsp;</span> : formatAddress(address)}</Cell>;
+function Gutter({ changed, address, blank }) {
+  const className = classNames('gutter', {
+    'changed': changed,
+  });
+
+  return <Cell className={className}>{blank ? <span>&nbsp;</span> : formatAddress(address)}</Cell>;
 }
 
-function Row({ className, address, blank, children }) {
+function Row({ changes, className, address, blank, children }) {
   return blank ? (
     <div className={classNames('row', className)} >
       <Gutter address={address} blank={blank} />
     </div>
   ) : (
     <div className={classNames('row', className)} >
-      <Gutter address={address} />
+      <Gutter address={address} changed={changes && changes.address} />
       {children}
     </div>
   );
 }
 
-function CodeDiffLine({ className, blank, label, address, diff, text }) {
+function CodeDiffLine({ changes, className, blank, label, address, diff, text }) {
   const indentedText = `\t\t${text}`;
 
   return (
     <div>
       {label !== null && (
-         <Row className={className} address={address} blank={blank}>
+         <Row changes={changes} className={className} address={address} blank={blank}>
            <Cell className="code-label">
              {label !== '' && <Pre>{label}:</Pre>}
            </Cell>
          </Row>
       )}
-      <Row className={className} address={address} blank={blank}>
+      <Row changes={changes} className={className} address={address} blank={blank}>
         <Cell className="code">
           <Pre>{indentedText}</Pre>
         </Cell>
@@ -56,9 +60,9 @@ function CodeDiffLine({ className, blank, label, address, diff, text }) {
   );
 }
 
-function DataDiffLine({ className, label, blank, address, diff, text }) {
+function DataDiffLine({ changes, className, label, blank, address, diff, text }) {
   return (
-    <Row className={className} address={address} blank={blank}>
+    <Row changes={changes} className={className} address={address} blank={blank}>
       <Cell className="data">
         <Pre>{label && `${label}:\t`}{text}</Pre>
       </Cell>
@@ -66,9 +70,9 @@ function DataDiffLine({ className, label, blank, address, diff, text }) {
   );
 }
 
-function PaddingDiffLine({ className, blank, address, diff, text }) {
+function PaddingDiffLine({ changes, className, blank, address, diff, text }) {
   return (
-    <Row className={className} address={address} blank={blank}>
+    <Row changes={changes} className={className} address={address} blank={blank}>
       <Cell className="padding"><Pre>{text}</Pre></Cell>
     </Row>
   );

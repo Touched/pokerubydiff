@@ -1,5 +1,6 @@
 $green: #7ab97a;
 $red: #b36868;
+$yellow: #f1e36a;
 
 .diff-side-by-side {
     display: flex;
@@ -37,6 +38,10 @@ $red: #b36868;
             background: #f1ede4;
             width: 6em;
             text-align: right;
+
+            &.changed {
+                background: $yellow;
+            }
         }
 
         &.insert {
