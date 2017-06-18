@@ -16,14 +16,16 @@ $red: #b36868;
 
 .diff-inline {
     font-family: monospace;
-    border-collapse: collapse;
+    // display: table;
 
     .row {
         display: flex;
+        // display: table-row;
 
         .cell {
             padding: 0.25em 0.5em;
-            width: 100%;
+            // width: 100%;
+            // display: table-cell;
 
             pre {
                 margin: 0;
@@ -33,6 +35,8 @@ $red: #b36868;
         .gutter {
             width: auto;
             background: #f1ede4;
+            width: 6em;
+            text-align: right;
         }
 
         &.insert {
@@ -54,19 +58,25 @@ $red: #b36868;
 }
 
 .diff-change-enter {
-  opacity: 0.01;
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
 }
 
 .diff-change-enter.diff-change-enter-active {
-  opacity: 1;
-  transition: opacity 1000ms ease-in;
+    max-height: 100px;
+    opacity: 1;
+    transition: max-height 1000ms ease-in, opacity 500ms ease-in;
 }
 
 .diff-change-leave {
-  opacity: 1;
+    max-height: 100px;
+    opacity: 1;
+    overflow: hidden;
 }
 
 .diff-change-leave.diff-change-leave-active {
-  opacity: 0.01;
-  transition: opacity 1000ms ease-in;
+    max-height: 0;
+    opacity: 0;
+    transition: max-height 1000ms ease-in, opacity 500ms ease-in;
 }

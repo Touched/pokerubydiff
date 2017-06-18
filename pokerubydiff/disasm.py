@@ -188,7 +188,7 @@ class Insn(Item):
                 disp = self._insn.operands[1].mem.disp
 
                 # FIXME: Negative displacement
-                assert disp > 0
+                # assert disp > 0
 
                 address = self._insn.address + disp + (4 if self._insn.address % 4 == 0 else 2)
                 size = 4
@@ -270,6 +270,8 @@ class Insn(Item):
             if operands[1].mem.base == capstone.arm.ARM_REG_PC:
                 # TODO: Get symbol in the middle
                 lookup = self._symbols and self._symbols.lookup(self._datarefs[0].value)
+
+                ops.append(register_names[operands[0].reg])
 
                 if lookup:
                     if lookup.disp > 0:
