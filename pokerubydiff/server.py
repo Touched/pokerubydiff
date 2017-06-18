@@ -18,7 +18,7 @@ class BuildError(Exception):
 
 
 class Server(FileSystemEventHandler):
-    def __init__(self, directory, host='localhost', port=5000):
+    def __init__(self, directory, host='localhost', port=5000, function=None):
         # TODO: Check if directory is a pokeruby install
         # TODO: Check that the directory contains the necessary files
 
@@ -32,7 +32,7 @@ class Server(FileSystemEventHandler):
         self._port = port
         self._diff = None
         self._directory = directory
-        self._changed_function = None
+        self._changed_function = function
         self._update_file_cache()
         self._update_symbol_cache()
         self._message_queue = asyncio.Queue()
@@ -104,6 +104,9 @@ class Server(FileSystemEventHandler):
         self._app.router.add_get('/socket', socket)
         self._app.router.add_static('/assets', public_dir)
 
+        if self._changed_function != None:
+            self._trigger_build()
+
     def on_created(self, event):
         if self._observer.__class__.__name__ == 'InotifyObserver':
             # inotify also generates modified events for created files
@@ -162,6 +165,9 @@ class Server(FileSystemEventHandler):
         if not self._matches(path, ('*.c', '*.s', '*.asm', '*.inc', '*.h')):
             return False
 
+        self._trigger_build(path)
+
+    def _trigger_build(self, path=None):
         # 1. Trigger a rebuild
         self._broadcast('building')
         try:
@@ -172,7 +178,7 @@ class Server(FileSystemEventHandler):
 
         # 2. Find change location or load it from the cached location
         changed_function = None
-        if self._matches(path, ('*.c',)):
+        if path and self._matches(path, ('*.c',)):
             changed_function = parser.find_changed_function_name(path, self._filecache)
 
             if changed_function != None:

@@ -1,7 +1,18 @@
 #!/usr/bin/env python
 
 import os
+import argparse
 from pokerubydiff.server import Server
 
+parser = argparse.ArgumentParser(description='Watch pokeruby code for changes.')
+
+parser.add_argument('--function', type=str, nargs='?',
+                    help='The symbol name of the function to initially watch')
+
+parser.add_argument('--port', type=int, nargs='?', default=5000,
+                    help='The port to serve the diff client on')
+
+args = parser.parse_args()
+
 if __name__ == '__main__':
-    Server(os.getcwd()).run()
+    Server(os.getcwd(), function=args.function, port=args.port).run()
