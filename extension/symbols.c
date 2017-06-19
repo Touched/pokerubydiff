@@ -216,6 +216,7 @@ PyObject *elf_symbols(PyObject *self, PyObject *args)
                 }
 
                 PyList_Append(symbols, (PyObject*) symbol);
+                Py_DECREF(symbol);
             }
         }
     }
