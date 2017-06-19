@@ -1,6 +1,22 @@
-$green: #7ab97a;
-$red: #b36868;
-$yellow: #f1e36a;
+// $green: #7ab97a;
+// $red: #b36868;
+// $yellow: #f1e36a;
+$base03:    #002b36;
+$base02:    #073642;
+$base01:    #586e75;
+$base00:    #657b83;
+$base0:     #839496;
+$base1:     #93a1a1;
+$base2:     #eee8d5;
+$base3:     #fdf6e3;
+$yellow:    #b58900;
+$orange:    #cb4b16;
+$red:       #dc322f;
+$magenta:   #d33682;
+$violet:    #6c71c4;
+$blue:      #268bd2;
+$cyan:      #2aa198;
+$green:     #859900;
 
 .diff-side-by-side {
     display: flex;
@@ -12,51 +28,58 @@ $yellow: #f1e36a;
 }
 
 .diff {
-    background: #f8f5ec;
-}
-
-.diff-inline {
+    background: $base3;
+    color: $base1;
     font-family: monospace;
-    // display: table;
+
+    &.dark {
+        background: $base03;
+        color: $base01;
+
+        .gutter {
+            background: $base02;
+        }
+    }
+
+    .change, .insert, .delete {
+        color: $base2;
+    }
+
+    .cell {
+        padding: 0.25em 0.5em;
+
+        pre {
+            margin: 0;
+        }
+    }
+
+    .text {
+        .change {
+            background: $yellow;
+        }
+
+        .insert {
+            background: $green;
+        }
+
+        .delete {
+            background: $red;
+        }
+    }
+
+    .gutter {
+        width: auto;
+        background: $base2;
+        width: 6em;
+        text-align: right;
+
+        &.change {
+            background: $yellow;
+        }
+    }
 
     .row {
         display: flex;
-        // display: table-row;
-
-        .cell {
-            padding: 0.25em 0.5em;
-            // width: 100%;
-            // display: table-cell;
-
-            pre {
-                margin: 0;
-            }
-        }
-
-        .text {
-            .change {
-                background: $yellow;
-            }
-
-            .insert {
-                background: $green;
-            }
-
-            .delete {
-                background: $red;
-            }
-        }
-
-        .gutter {
-            width: auto;
-            background: #f1ede4;
-            width: 6em;
-            text-align: right;
-
-            &.changed {
-                background: $yellow;
-            }
-        }
 
         &.insert {
             background: $green;

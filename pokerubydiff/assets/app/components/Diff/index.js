@@ -50,7 +50,7 @@ function Cell(props) {
 
 function Gutter({ changed, address, blank }) {
   const className = classNames('gutter', {
-    'changed': changed,
+    'change': changed,
   });
 
   return <Cell className={className}>{blank ? <span>&nbsp;</span> : formatAddress(address)}</Cell>;
@@ -129,7 +129,11 @@ function DiffLine(props) {
   }
 }
 
-function InlineDiff({ diff }) {
+function InlineDiff({ description, diff }) {
+  let expectedNextAddress = null;
+
+  const addresses = [];
+
   const lines = diff.map((item) => {
     if (item.opcode === 'x') {
       return {
@@ -138,11 +142,25 @@ function InlineDiff({ diff }) {
       };
     }
 
+    if (expectedNextAddress && item.address !== expectedNextAddress) {
+      throw new Error(
+        'Disassembly item did not begin where the last one end ended: ' +
+        `Expected item to be at ${formatAddress(expectedNextAddress)} ` +
+        `but it was at ${formatAddress(item.address)}.`
+      );
+    }
+    expectedNextAddress = item.address + item.size;
+
     return {
       ...item,
       blank: false,
     };
   });
+
+  function makeKey(line, index) {
+    console.log(line.text.trim());
+    return `${formatAddress(line.address)}-${index}`;
+  }
 
   return (
     <ReactCSSTransitionGroup
@@ -151,7 +169,7 @@ function InlineDiff({ diff }) {
       transitionEnterTimeout={1000}
       transitionLeaveTimeout={1000}
     >
-      {lines.map((line) => <DiffLine key={`${line.address}${line.text}`} {...line} />, diff)}
+      {lines.map((line, index) => <DiffLine key={makeKey(line, index)} {...line} />, diff)}
     </ReactCSSTransitionGroup>
   );
 }
@@ -174,10 +192,10 @@ function SideBySideDiff({ diff }) {
   return (
     <div className="diff-side-by-side">
       <div className="diff-side-by-side-pane">
-        <InlineDiff diff={left} />
+        <InlineDiff description="Original" diff={left} />
       </div>
       <div className="diff-side-by-side-pane">
-        <InlineDiff diff={right} />
+        <InlineDiff description="Modified" diff={right} />
       </div>
     </div>
   );
