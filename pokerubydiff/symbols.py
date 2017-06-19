@@ -7,7 +7,7 @@ ST_FUNCTION = 2
 class SymbolLookup:
     def __init__(self, address, symbol):
         start = symbol.value & 0xFFFFFFFE if symbol.type == ST_FUNCTION else symbol.value
-        self.disp = start - address
+        self.disp = address - start
         self.symbol = symbol
 
 

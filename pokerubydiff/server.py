@@ -18,7 +18,8 @@ class BuildError(Exception):
 
 
 class Server(FileSystemEventHandler):
-    def __init__(self, directory, host='localhost', port=5000, function=None):
+    def __init__(self, directory, *, host='localhost', port=5000,
+                 function=None, no_reload_symbols=False):
         # TODO: Check if directory is a pokeruby install
         # TODO: Check that the directory contains the necessary files
 
@@ -36,6 +37,7 @@ class Server(FileSystemEventHandler):
         self._update_file_cache()
         self._update_symbol_cache()
         self._message_queue = asyncio.Queue()
+        self._no_reload_symbols = no_reload_symbols
 
         paths = [
             os.path.join(directory, 'src'),
@@ -200,14 +202,23 @@ class Server(FileSystemEventHandler):
         address = symbol.value & 0xFFFFFFFE # Ignore THUMB bit
 
         # 4. Disassemble
-        with open(os.path.join(self._directory, 'pokeruby.elf'), 'rb') as f:
-            modified_symbols = symbols.Symbols(f)
+        if self._no_reload_symbols:
+            modified_symbols = self._symbolcache
+        else:
+            with open(os.path.join(self._directory, 'pokeruby.elf'), 'rb') as f:
+                modified_symbols = symbols.Symbols(f)
 
         with open(os.path.join(self._directory, 'pokeruby.gba'), 'rb') as f:
             modified_binary = f.read()
 
-        original = disasm.Disassembler(self._original_binary).disassemble(address, self._symbolcache)
-        modified = disasm.Disassembler(modified_binary).disassemble(address, modified_symbols)
+        original = disasm.Disassembler(self._original_binary).disassemble(
+            address,
+            self._symbolcache,
+        )
+        modified = disasm.Disassembler(modified_binary).disassemble(
+            address,
+            modified_symbols,
+        )
 
         # 5. Diff
         differ = diff.DisasmDiff()

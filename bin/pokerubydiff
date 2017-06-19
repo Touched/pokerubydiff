@@ -12,7 +12,10 @@ parser.add_argument('--function', type=str, nargs='?',
 parser.add_argument('--port', type=int, nargs='?', default=5000,
                     help='The port to serve the diff client on')
 
-args = parser.parse_args()
+parser.add_argument('--no-reload-symbols', action='store_true',
+                    help='Skip reloading symbols from the modified ELF. Can make the build faster.')
+
+args = vars(parser.parse_args())
 
 if __name__ == '__main__':
-    Server(os.getcwd(), function=args.function, port=args.port).run()
+    Server(os.getcwd(), **args).run()

@@ -187,11 +187,12 @@ class Insn(Item):
             if base == 'pc':
                 disp = self._insn.operands[1].mem.disp
 
-                # FIXME: Negative displacement
-                # assert disp > 0
+                # 5.6.2. LDR Thumb pseudo-instruction:
+                # "The offset from the pc to the constant must be positive and less than 1KB."
+                assert disp >= 0
 
-                address = self._insn.address + disp + (4 if self._insn.address % 4 == 0 else 2)
                 size = 4
+                address = self._insn.address + disp + (4 if self._insn.address % 4 == 0 else 2)
                 self._datarefs.append(Data(self._data, address, size, self._symbols))
 
     def data_references(self):
@@ -274,6 +275,7 @@ class Insn(Item):
                 ops.append(register_names[operands[0].reg])
 
                 if lookup:
+                    assert lookup.disp >= 0
                     if lookup.disp > 0:
                         ops.append('={}+{}'.format(lookup.symbol.name, lookup.disp))
                     else:
