@@ -1,3 +1,4 @@
+import itertools
 import difflib
 import re
 import math
@@ -33,19 +34,26 @@ class DisasmDiff:
     def _prepare_lines(self, items):
         return [str(item) + '\n' for item in items]
 
-    def _tag_item(self, tag, item):
+    def _tag_item(self, tag, aitem, bitem):
+        # Labels will sometimes skew the output when they
+        # are displayed on their own lines, so ensure that
+        # both sets of changes report a label.
+        has_label = bool(aitem.label or (bitem and bitem.label))
+        fake_label = ('' if has_label else None)
+
         return {
             'opcode': tag,
-            'type': item.type(),
-            'address': item.address(),
-            'size': item.size(),
-            'text': str(item),
-            'label': item.label,
+            'type': aitem.type(),
+            'address': aitem.address(),
+            'size': aitem.size(),
+            'text': str(aitem),
+            'label': aitem.label or fake_label,
         }
 
-    def _tag_range(self, tag, it):
-        for item in it:
-            yield self._tag_item(tag, item)
+    def _tag_range(self, tag, ait, bit):
+        for aitem, bitem in itertools.zip_longest(ait, bit):
+            if aitem == None: break
+            yield self._tag_item(tag, aitem, bitem)
 
     def diff(self, original, modified):
         a = list(original)
@@ -58,17 +66,17 @@ class DisasmDiff:
             if tag == 'replace':
                 yield from self._fancy_replace(a, alo, ahi, b, blo, bhi)
             elif tag == 'delete':
-                yield from self._tag_range('-', a[alo:ahi])
+                yield from self._tag_range('-', a[alo:ahi], b[blo:bhi])
             elif tag == 'insert':
-                yield from self._tag_range('+', b[blo:bhi])
+                yield from self._tag_range('+', b[blo:bhi], a[alo:ahi])
             elif tag == 'equal':
                 # The opcodes are equal, but they might have been
                 # displaced by earlier sections of code. This means the
                 # addresses are not necessarily equal (as addresses are
                 # not factored into the diff), and this should be reported
                 # as a replacement.
-                for left, right in zip(self._tag_range(' ', a[alo:ahi]),
-                                       self._tag_range(' ', b[blo:bhi])):
+                for left, right in zip(self._tag_range(' ', a[alo:ahi], b[blo:bhi]),
+                                       self._tag_range(' ', b[blo:bhi], a[alo:ahi])):
                     if left['address'] == right['address']:
                         yield left
                     else:
@@ -76,24 +84,16 @@ class DisasmDiff:
                             'address': True,
                         }
 
-                        # Labels will sometimes skew the output when they
-                        # are displayed on their own lines, so ensure that
-                        # both sets of changes report a label.
-                        has_label = bool(left['label'] or right['label'])
-                        fake_label = ('' if has_label else None)
-
                         yield {
                             **left,
                             'opcode': '<',
                             'changes': changes,
-                            'label': left['label'] or fake_label
                         }
 
                         yield {
                             **right,
                             'opcode': '>',
                             'changes': changes,
-                            'label': right['label'] or fake_label
                         }
             else:
                 raise ValueError('Unkown tag %r' % (tag,))
@@ -113,11 +113,11 @@ class DisasmDiff:
         # dump the shorter block first -- reduces the burden on short-term
         # memory if the blocks are of very different sizes
         if bhi - blo < ahi - alo:
-            yield from self._tag_range('+', b[blo:bhi])
-            yield from self._tag_range('-', a[alo:ahi])
+            yield from self._tag_range('+', b[blo:bhi], a[alo:ahi])
+            yield from self._tag_range('-', a[alo:ahi], b[blo:bhi])
         else:
-            yield from self._tag_range('-', a[alo:ahi])
-            yield from self._tag_range('+', b[blo:bhi])
+            yield from self._tag_range('-', a[alo:ahi], b[blo:bhi])
+            yield from self._tag_range('+', b[blo:bhi], a[alo:ahi])
 
     def _fancy_replace(self, a, alo, ahi, b, blo, bhi):
         r"""
@@ -214,20 +214,18 @@ class DisasmDiff:
 
             # Left
             yield {
-                **self._tag_item('<', aelt),
+                **self._tag_item('<', aelt, belt),
                 'changes': {
                     'text': atags,
                 },
-                'label': aelt.label or fake_label,
             }
 
             # Right
             yield {
-                **self._tag_item('>', belt),
+                **self._tag_item('>', belt, aelt),
                 'changes': {
                     'text': btags,
                 },
-                'label': belt.label or fake_label,
             }
         else:
             # the synch pair is identical
@@ -242,6 +240,6 @@ class DisasmDiff:
             if blo < bhi:
                 yield from self._fancy_replace(a, alo, ahi, b, blo, bhi)
             else:
-                yield from self._tag_range('-', a[alo:ahi])
+                yield from self._tag_range('-', a[alo:ahi], b[blo:bhi])
         elif blo < bhi:
-            yield from self._tag_range('+', b[blo:bhi])
+            yield from self._tag_range('+', b[blo:bhi], a[alo:ahi])
