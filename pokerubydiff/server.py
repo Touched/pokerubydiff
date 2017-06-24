@@ -34,7 +34,7 @@ class Server(FileSystemEventHandler):
 
         self._host = host
         self._port = port
-        self._diff = None
+        self._cached_messages = []
         self._directory = directory
         self._changed_function = function
         self._update_file_cache()
@@ -66,11 +66,9 @@ class Server(FileSystemEventHandler):
             request.app['websockets'].append(ws)
 
             # New connections should receive the 'diff' event
-            if self._diff != None:
-                await ws.send_json({
-                    'type': 'diff',
-                    'data': self._diff,
-                })
+            if len(self._cached_messages) > 0:
+                for message in self._cached_messages:
+                    await ws.send_json(message)
 
             try:
                 async for msg in ws:
@@ -135,7 +133,14 @@ class Server(FileSystemEventHandler):
         self._observer.stop()
         self._observer.join()
 
-    def _broadcast(self, event, message=None):
+    def _broadcast(self, event, message=None, *, cache=False):
+        # Cache the message so that it will be sent when a new client connects
+        if cache:
+            self._cached_messages.append({
+                'type': event,
+                'data': message,
+            })
+
         self._message_queue.put_nowait((event, message))
 
     def _matches(self, filename, patterns):
@@ -176,12 +181,14 @@ class Server(FileSystemEventHandler):
         self._trigger_build(path)
 
     def _trigger_build(self, path=None):
+        self._cached_messages = []
+
         # 1. Trigger a rebuild
         self._broadcast('building')
         try:
             self._make()
         except BuildError as e:
-            self._broadcast('build_error', e.message)
+            self._broadcast('build_error', e.message, cache=True)
             return
 
         # 2. Check for a match
@@ -193,7 +200,7 @@ class Server(FileSystemEventHandler):
 
         if self._original_hash == h.digest():
             self._logger.info('Match')
-            self._broadcast('match')
+            self._broadcast('match', cache=True)
 
         # 3. Find change location or load it from the cached location
         changed_function = None
@@ -236,7 +243,7 @@ class Server(FileSystemEventHandler):
 
         # 6. Diff
         differ = diff.DisasmDiff()
-        self._diff = list(differ.diff(original, modified))
+        diff_data = list(differ.diff(original, modified))
 
         # 7. Emit change
-        self._broadcast('diff', self._diff)
+        self._broadcast('diff', diff_data, cache=True)
