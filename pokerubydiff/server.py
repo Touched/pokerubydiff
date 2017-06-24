@@ -4,6 +4,7 @@ import logging
 import threading
 import os.path
 import asyncio
+import hashlib
 from aiohttp import web
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
@@ -11,6 +12,8 @@ from . import parser
 from . import symbols
 from . import disasm
 from . import diff
+
+HASH_NAME = 'sha1'
 
 class BuildError(Exception):
     def __init__(self, message):
@@ -150,6 +153,9 @@ class Server(FileSystemEventHandler):
 
         with open(os.path.join(self._directory, 'basepokeruby.gba'), 'rb') as f:
             self._original_binary = f.read()
+            h = hashlib.new(HASH_NAME)
+            h.update(self._original_binary)
+            self._original_hash = h.digest()
 
     def _make(self):
         self._logger.info('Starting a new build')
@@ -178,7 +184,18 @@ class Server(FileSystemEventHandler):
             self._broadcast('build_error', e.message)
             return
 
-        # 2. Find change location or load it from the cached location
+        # 2. Check for a match
+        with open(os.path.join(self._directory, 'pokeruby.gba'), 'rb') as f:
+            modified_binary = f.read()
+
+        h = hashlib.new(HASH_NAME)
+        h.update(modified_binary)
+
+        if self._original_hash == h.digest():
+            self._logger.info('Match')
+            self._broadcast('match')
+
+        # 3. Find change location or load it from the cached location
         changed_function = None
         if path and self._matches(path, ('*.c',)):
             changed_function = parser.find_changed_function_name(path, self._filecache)
@@ -194,22 +211,19 @@ class Server(FileSystemEventHandler):
             changed_function = self._changed_function
         self._update_file_cache()
 
-        # 3. Get symbol address
+        # 4. Get symbol address
         symbol = self._symbolcache.lookup_name(changed_function)
         if symbol == None:
             self._logger.info('Could not find address for function {}'.format(changed_function))
             return
         address = symbol.value & 0xFFFFFFFE # Ignore THUMB bit
 
-        # 4. Disassemble
+        # 5. Disassemble
         if self._no_reload_symbols:
             modified_symbols = self._symbolcache
         else:
             with open(os.path.join(self._directory, 'pokeruby.elf'), 'rb') as f:
                 modified_symbols = symbols.Symbols(f)
-
-        with open(os.path.join(self._directory, 'pokeruby.gba'), 'rb') as f:
-            modified_binary = f.read()
 
         original = disasm.Disassembler(self._original_binary).disassemble(
             address,
@@ -220,9 +234,9 @@ class Server(FileSystemEventHandler):
             modified_symbols,
         )
 
-        # 5. Diff
+        # 6. Diff
         differ = diff.DisasmDiff()
         self._diff = list(differ.diff(original, modified))
 
-        # 6. Emit change
+        # 7. Emit change
         self._broadcast('diff', self._diff)

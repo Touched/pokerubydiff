@@ -14,8 +14,6 @@ BodyClasses.propTypes = {
 };
 
 function reducePropsToState(propsList) {
-  console.log(propsList.map(({ className }) => className));
-
   return classNames(...propsList.map(({ className }) => className));
 }
 

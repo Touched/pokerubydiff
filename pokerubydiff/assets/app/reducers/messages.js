@@ -4,6 +4,7 @@ const initialState = {
   diff: [],
   building: false,
   error: null,
+  match: false,
 };
 
 function handleMessage(state, event, data) {
@@ -13,12 +14,19 @@ function handleMessage(state, event, data) {
         ...state,
         building: true,
         error: null,
+        match: false,
       };
     case 'diff':
       return {
         ...state,
         diff: data,
         building: false,
+      };
+    case 'match':
+      return {
+        ...state,
+        building: false,
+        match: true,
       };
     case 'build_error':
       return {

@@ -3,12 +3,16 @@ import { connect } from 'react-redux';
 
 import Diff from '../../components/Diff';
 import LoadingOverlay from '../../components/LoadingOverlay';
+import ErrorOverlay from '../../components/ErrorOverlay';
+import MatchOverlay from '../../components/MatchOverlay';
 
-function App({ diff, error, loading }) {
+function App({ match, diff, error, loading }) {
   return (
     <div>
-      {loading ? <LoadingOverlay /> : null}
-      {error ? <pre>{error}</pre> : <Diff diff={diff} />}
+      {loading && <LoadingOverlay />}
+      {error && <ErrorOverlay message={error} />}
+      {match && <MatchOverlay />}
+      <Diff diff={diff} />
     </div>
   );
 }
@@ -18,6 +22,7 @@ function mapStateToProps(state) {
     diff: state.messages.diff,
     loading: state.messages.building,
     error: state.messages.error,
+    match: state.messages.match,
   };
 }
 

@@ -1,0 +1,56 @@
+$duration: 1s;
+
+body.overlay {
+    overflow-y: hidden;
+}
+
+.match-overlay {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    color: #fff;
+}
+
+.draw-appear {
+    .circle {
+        opacity: 0;
+        stroke-dasharray: 130;
+        stroke-dashoffset: 130;
+    }
+
+    .tick {
+        stroke-dasharray: 50;
+        stroke-dashoffset: 50;
+    }
+
+    h1 {
+        opacity: 0;
+    }
+}
+
+.draw-appear.draw-appear-active {
+    .circle {
+        opacity: 1;
+        stroke-dashoffset: 0;
+        transition: all 1s;
+    }
+
+    .tick {
+        stroke-dashoffset: 0;
+        transition: stroke-dashoffset $duration 0.5s ease-out;
+    }
+
+    h1 {
+        opacity: 1;
+        transition: opacity $duration 0.5s ease-out;
+    }
+}
