@@ -126,10 +126,13 @@ class Server(FileSystemEventHandler):
         if not event.is_directory:
             self._on_change(event.dest_path)
 
+    def _nop_print(self, *args, **kwargs):
+        pass
+
     def run(self):
-        self._logger.info('Starting server at http://{}:{}'.format(self._host, self._port))
         self._observer.start()
-        web.run_app(self._app)
+        self._logger.info('Starting server at http://{}:{}'.format(self._host, self._port))
+        web.run_app(self._app, host=self._host, port=self._port, print=self._nop_print)
         self._observer.stop()
         self._observer.join()
 
